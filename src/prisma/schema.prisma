@@ -1,0 +1,298 @@
+// ============================================================
+//  schema.prisma — Sistema de Gestión de Ventas (Tienda Ropa)
+//  Motor: PostgreSQL  |  ORM: Prisma
+// ============================================================
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum Rol {
+    ADMIN
+    VENDEDOR
+    CLIENTE
+}
+
+enum EstadoPedido {
+    PENDIENTE
+    CONFIRMADO
+    ENVIADO
+    ENTREGADO
+    CANCELADO
+}
+
+enum CanalVenta {
+    TIENDA // Venta presencial (vendedor)
+    WEB // Venta online (cliente)
+}
+
+enum TipoMovimiento {
+    ENTRADA // Compra de stock, devolución
+    SALIDA // Venta, daño, ajuste
+}
+
+enum TipoDescuento {
+    PORCENTAJE
+    MONTO_FIJO
+}
+
+model Usuario {
+    id            String   @id @default(uuid())
+    nombre        String
+    correo        String   @unique
+    contrasena    String
+    telefono      String?
+    rol           Rol      @default(CLIENTE)
+    activo        Boolean  @default(true)
+    creadoEn      DateTime @default(now())
+    actualizadoEn DateTime @updatedAt
+
+    // Relaciones
+    perfil            PerfilCliente?
+    pedidos           Pedido[] // Pedidos online (CLIENTE)
+    ventas            Venta[] // Ventas registradas (VENDEDOR)
+    tokenRecuperacion TokenRecuperacion?
+
+    @@map("usuarios")
+}
+
+model TokenRecuperacion {
+    id       String   @id @default(uuid())
+    token    String   @unique
+    expiraEn DateTime
+    usado    Boolean  @default(false)
+    creadoEn DateTime @default(now())
+
+    usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+    usuarioId String  @unique
+
+    @@map("tokens_recuperacion")
+}
+
+model PerfilCliente {
+    id              String    @id @default(uuid())
+    direccion       String?
+    ciudad          String?
+    distrito        String?
+    codigoPostal    String?
+    fechaNacimiento DateTime?
+    avatarUrl       String?
+    creadoEn        DateTime  @default(now())
+    actualizadoEn   DateTime  @updatedAt
+
+    usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+    usuarioId String  @unique
+
+    @@map("perfiles_cliente")
+}
+
+model Categoria {
+    id            String   @id @default(uuid())
+    nombre        String   @unique
+    slug          String   @unique
+    descripcion   String?
+    imagenUrl     String?
+    activo        Boolean  @default(true)
+    creadoEn      DateTime @default(now())
+    actualizadoEn DateTime @updatedAt
+
+    productos Producto[]
+
+    @@map("categorias")
+}
+
+model Producto {
+    id            String   @id @default(uuid())
+    nombre        String
+    slug          String   @unique
+    descripcion   String?
+    precioBase    Float
+    imagenUrl     String?
+    activo        Boolean  @default(true)
+    destacado     Boolean  @default(false)
+    creadoEn      DateTime @default(now())
+    actualizadoEn DateTime @updatedAt
+
+    categoria      Categoria          @relation(fields: [categoriaId], references: [id])
+    categoriaId    String
+    variantes      VarianteProducto[]
+    imagenes       ImagenProducto[]
+    itemsPromocion ItemPromocion[]
+
+    @@map("productos")
+}
+
+model VarianteProducto {
+    id            String   @id @default(uuid())
+    sku           String   @unique
+    talla         String // XS, S, M, L, XL, XXL o numérico
+    color         String
+    precio        Float
+    stock         Int      @default(0)
+    activo        Boolean  @default(true)
+    creadoEn      DateTime @default(now())
+    actualizadoEn DateTime @updatedAt
+
+    producto         Producto          @relation(fields: [productoId], references: [id], onDelete: Cascade)
+    productoId       String
+    itemsVenta       ItemVenta[]
+    itemsPedido      ItemPedido[]
+    movimientosStock MovimientoStock[]
+
+    @@map("variantes_producto")
+}
+
+model ImagenProducto {
+    id          String  @id @default(uuid())
+    url         String
+    textoAlt    String?
+    esPrincipal Boolean @default(false)
+    orden       Int     @default(0)
+
+    producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+    productoId String
+
+    @@map("imagenes_producto")
+}
+
+model MovimientoStock {
+    id       String         @id @default(uuid())
+    tipo     TipoMovimiento
+    cantidad Int
+    motivo   String? // "Venta #123", "Devolución", "Ajuste manual"
+    creadoEn DateTime       @default(now())
+
+    variante   VarianteProducto @relation(fields: [varianteId], references: [id])
+    varianteId String
+
+    usuarioId String? // Admin o vendedor que realizó el movimiento
+
+    @@map("movimientos_stock")
+}
+
+model Venta {
+    id                String     @id @default(uuid())
+    canal             CanalVenta @default(TIENDA)
+    subtotal          Float
+    descuento         Float      @default(0)
+    impuesto          Float      @default(0)
+    total             Float
+    notas             String?
+    numeroComprobante String?    @unique
+    creadoEn          DateTime   @default(now())
+
+    vendedor   Usuario @relation(fields: [vendedorId], references: [id])
+    vendedorId String
+
+    clienteId String?
+
+    items       ItemVenta[]
+    promocion   Promocion?  @relation(fields: [promocionId], references: [id])
+    promocionId String?
+
+    @@map("ventas")
+}
+
+model ItemVenta {
+    id             String @id @default(uuid())
+    cantidad       Int
+    precioUnitario Float
+    subtotal       Float
+
+    venta      Venta            @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+    ventaId    String
+    variante   VarianteProducto @relation(fields: [varianteId], references: [id])
+    varianteId String
+
+    @@map("items_venta")
+}
+
+model Pedido {
+    id             String       @id @default(uuid())
+    estado         EstadoPedido @default(PENDIENTE)
+    subtotal       Float
+    descuento      Float        @default(0)
+    costoEnvio     Float        @default(0)
+    impuesto       Float        @default(0)
+    total          Float
+    direccionEnvio String?
+    notas          String?
+    creadoEn       DateTime     @default(now())
+    actualizadoEn  DateTime     @updatedAt
+
+    cliente   Usuario @relation(fields: [clienteId], references: [id])
+    clienteId String
+
+    items            ItemPedido[]
+    promocion        Promocion?              @relation(fields: [promocionId], references: [id])
+    promocionId      String?
+    historialEstados HistorialEstadoPedido[]
+
+    @@map("pedidos")
+}
+
+model ItemPedido {
+    id             String @id @default(uuid())
+    cantidad       Int
+    precioUnitario Float
+    subtotal       Float
+
+    pedido     Pedido           @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+    pedidoId   String
+    variante   VarianteProducto @relation(fields: [varianteId], references: [id])
+    varianteId String
+
+    @@map("items_pedido")
+}
+
+model HistorialEstadoPedido {
+    id          String       @id @default(uuid())
+    estado      EstadoPedido
+    nota        String?
+    cambiadoEn  DateTime     @default(now())
+    cambiadoPor String? // usuarioId del admin que cambió el estado
+
+    pedido   Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+    pedidoId String
+
+    @@map("historial_estado_pedido")
+}
+
+model Promocion {
+    id             String        @id @default(uuid())
+    nombre         String
+    descripcion    String?
+    codigo         String?       @unique // Código de cupón (opcional)
+    tipoDescuento  TipoDescuento
+    valorDescuento Float // Porcentaje (0–100) o monto fijo
+    montoMinimo    Float? // Monto mínimo del pedido para aplicar
+    usoMaximo      Int? // Límite de usos (null = ilimitado)
+    usoActual      Int           @default(0)
+    inicioEn       DateTime
+    finEn          DateTime
+    activo         Boolean       @default(true)
+    creadoEn       DateTime      @default(now())
+
+    items   ItemPromocion[]
+    ventas  Venta[]
+    pedidos Pedido[]
+
+    @@map("promociones")
+}
+
+model ItemPromocion {
+    id String @id @default(uuid())
+
+    promocion   Promocion @relation(fields: [promocionId], references: [id], onDelete: Cascade)
+    promocionId String
+    producto    Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
+    productoId  String
+
+    @@unique([promocionId, productoId])
+    @@map("items_promocion")
+}
