@@ -6,7 +6,7 @@ import {
     validarRegistro,
     validarLogin,
     validarCambioContrasena,
-} from "../validators/auth.validator.js";
+} from "../validator/auth.validator.js";
 
 const router = Router();
 

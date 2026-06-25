@@ -6,20 +6,20 @@ import { validate } from "../middlewares/validate.middleware.js";
 import {
     validarActualizarPerfil,
     validarCrearUsuario,
-} from "../validators/client.validator.js";
+} from "../validator/client.validator.js";
 
 const router = Router();
 
 router.get(
     "/",
     authenticate,
-    authorize("ADMIN"),
+    authorize("ADMIN", "VENDEDOR"),
     clientController.listarClientes,
 );
 router.post(
     "/",
     authenticate,
-    authorize("ADMIN"),
+    authorize("ADMIN", "VENDEDOR"),
     validarCrearUsuario,
     validate,
     clientController.crearUsuario,
@@ -39,7 +39,7 @@ router.patch(
 router.get(
     "/:id",
     authenticate,
-    authorize("ADMIN"),
+    authorize("ADMIN", "VENDEDOR"),
     clientController.obtenerCliente,
 );
 router.patch(

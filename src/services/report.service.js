@@ -10,50 +10,28 @@ const rango = (fechaDesde, fechaHasta) => ({
 });
 
 export const resumenGeneral = async () => {
-    const hoy = new Date();
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    const inicioHoy = new Date(hoy.setHours(0, 0, 0, 0));
+    const [totalProductos, totalVentas, ventas] = await Promise.all([
+        prisma.producto.count({
+            where: { activo: true },
+        }),
 
-    const [
-        totalUsuarios,
-        totalProductos,
-        stockBajo,
-        ventasHoy,
-        ventasMes,
-        pedidosPendientes,
-    ] = await Promise.all([
-        prisma.usuario.count({ where: { activo: true } }),
-        prisma.producto.count({ where: { activo: true } }),
-        prisma.varianteProducto.count({
-            where: { activo: true, stock: { lte: 5 } },
-        }),
+        prisma.venta.count(),
+
         prisma.venta.aggregate({
-            where: { creadoEn: { gte: inicioHoy } },
-            _sum: { total: true },
-            _count: true,
+            _sum: {
+                total: true,
+            },
+            _avg: {
+                total: true,
+            },
         }),
-        prisma.venta.aggregate({
-            where: { creadoEn: { gte: inicioMes } },
-            _sum: { total: true },
-            _count: true,
-        }),
-        prisma.pedido.count({ where: { estado: "PENDIENTE" } }),
     ]);
 
     return {
-        usuarios: { total: totalUsuarios },
-        productos: { total: totalProductos, conStockBajo: stockBajo },
-        ventas: {
-            hoy: {
-                cantidad: ventasHoy._count,
-                total: ventasHoy._sum.total || 0,
-            },
-            mes: {
-                cantidad: ventasMes._count,
-                total: ventasMes._sum.total || 0,
-            },
-        },
-        pedidos: { pendientes: pedidosPendientes },
+        totalVentas,
+        ingresosTotales: ventas._sum.total || 0,
+        ticketPromedio: ventas._avg.total || 0,
+        totalProductos,
     };
 };
 
@@ -157,6 +135,10 @@ export const productosMasVendidos = async ({
     }
 
     const varianteIds = Object.keys(consolidado);
+    if (varianteIds.length === 0) {
+        return [];
+    }
+    
     const variantes = await prisma.varianteProducto.findMany({
         where: { id: { in: varianteIds } },
         include: {
@@ -166,40 +148,33 @@ export const productosMasVendidos = async ({
 
     return variantes
         .map((v) => ({
-            variante: { id: v.id, sku: v.sku, talla: v.talla, color: v.color },
-            producto: v.producto,
-            cantidadVendida: consolidado[v.id]?.cantidadTotal || 0,
-            ingresos: parseFloat((consolidado[v.id]?.ingresos || 0).toFixed(2)),
+            id: v.producto.id,
+            nombre: v.producto.nombre,
+            cantidad: consolidado[v.id]?.cantidadTotal || 0,
+            ingresos: consolidado[v.id]?.ingresos || 0,
         }))
-        .sort((a, b) => b.cantidadVendida - a.cantidadVendida)
+        .sort((a, b) => b.cantidad - a.cantidad)
         .slice(0, parseInt(limite, 10));
 };
 
 export const ingresosMensuales = async (año) => {
     const anio = parseInt(año, 10) || new Date().getFullYear();
 
-    const [ventasMes, pedidosMes] = await Promise.all([
-        prisma.venta.groupBy({
-            by: [],
-            where: {
-                creadoEn: {
-                    gte: new Date(`${anio}-01-01`),
-                    lte: new Date(`${anio}-12-31`),
-                },
+    const pedidosMes = await prisma.pedido.findMany({
+        where: {
+            estado: {
+                in: ["CONFIRMADO", "ENVIADO", "ENTREGADO"],
             },
-            _sum: { total: true },
-        }),
-        prisma.pedido.findMany({
-            where: {
-                estado: { in: ["CONFIRMADO", "ENVIADO", "ENTREGADO"] },
-                creadoEn: {
-                    gte: new Date(`${anio}-01-01`),
-                    lte: new Date(`${anio}-12-31`),
-                },
+            creadoEn: {
+                gte: new Date(`${anio}-01-01`),
+                lte: new Date(`${anio}-12-31`),
             },
-            select: { total: true, creadoEn: true },
-        }),
-    ]);
+        },
+        select: {
+            total: true,
+            creadoEn: true,
+        },
+    });
 
     const meses = Array.from({ length: 12 }, (_, i) => ({
         mes: i + 1,
@@ -270,15 +245,17 @@ export const reporteInventario = async () => {
     const stockBajo = variantes.filter((v) => v.stock > 0 && v.stock <= 5);
     const stockNormal = variantes.filter((v) => v.stock > 5);
 
+    const valorInventario = variantes.reduce(
+        (acc, v) => acc + v.precio * v.stock,
+        0,
+    );
+
+    const totalUnidades = variantes.reduce((acc, v) => acc + v.stock, 0);
+
     return {
-        resumen: {
-            totalVariantes: variantes.length,
-            sinStock: sinStock.length,
-            stockBajo: stockBajo.length,
-            stockNormal: stockNormal.length,
-        },
-        sinStock,
-        stockBajo,
-        movimientosRecientes,
+        stockBajo: stockBajo.length,
+        stockSaludable: stockNormal.length,
+        valorInventario,
+        totalUnidades,
     };
 };

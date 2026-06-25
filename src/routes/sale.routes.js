@@ -6,7 +6,7 @@ import { validate } from "../middlewares/validate.middleware.js";
 import {
     validarRegistrarVenta,
     validarFiltrosVenta,
-} from "../validators/sale.validator.js";
+} from "../validator/sale.validator.js";
 
 const router = Router();
 

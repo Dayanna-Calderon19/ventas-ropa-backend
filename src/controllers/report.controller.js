@@ -30,7 +30,7 @@ export const productosMasVendidos = async (req, res, next) => {
 
 export const ingresosMensuales = async (req, res, next) => {
     try {
-        const resultado = await reportService.ingresosMensuales(req.query.año);
+        const resultado = await reportService.ingresosMensuales(req.query.anio);
         return success(res, resultado);
     } catch (err) {
         next(err);
