@@ -10,28 +10,62 @@ const rango = (fechaDesde, fechaHasta) => ({
 });
 
 export const resumenGeneral = async () => {
-    const [totalProductos, totalVentas, ventas] = await Promise.all([
-        prisma.producto.count({
+    const ahora = new Date();
+    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+    const mesInicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+
+    const [ventasHoy, ventasMes, pedidosHoy, pedidosMes, usuariosActivos, pedidosPendientes] = await Promise.all([
+        prisma.venta.aggregate({
+            _sum: { total: true },
+            _count: { id: true },
+            where: { creadoEn: { gte: hoyInicio } },
+        }),
+        prisma.venta.aggregate({
+            _sum: { total: true },
+            _count: { id: true },
+            where: { creadoEn: { gte: mesInicio } },
+        }),
+        prisma.pedido.aggregate({
+            _sum: { total: true },
+            _count: { id: true },
+            where: {
+                creadoEn: { gte: hoyInicio },
+                estado: { in: ["CONFIRMADO", "ENVIADO", "ENTREGADO"] },
+            },
+        }),
+        prisma.pedido.aggregate({
+            _sum: { total: true },
+            _count: { id: true },
+            where: {
+                creadoEn: { gte: mesInicio },
+                estado: { in: ["CONFIRMADO", "ENVIADO", "ENTREGADO"] },
+            },
+        }),
+        prisma.usuario.count({
             where: { activo: true },
         }),
-
-        prisma.venta.count(),
-
-        prisma.venta.aggregate({
-            _sum: {
-                total: true,
-            },
-            _avg: {
-                total: true,
-            },
+        prisma.pedido.count({
+            where: { estado: "PENDIENTE" },
         }),
     ]);
 
     return {
-        totalVentas,
-        ingresosTotales: ventas._sum.total || 0,
-        ticketPromedio: ventas._avg.total || 0,
-        totalProductos,
+        ventas: {
+            hoy: {
+                total: (ventasHoy._sum.total || 0) + (pedidosHoy._sum.total || 0),
+                cantidad: (ventasHoy._count.id || 0) + (pedidosHoy._count.id || 0),
+            },
+            mes: {
+                total: (ventasMes._sum.total || 0) + (pedidosMes._sum.total || 0),
+                cantidad: (ventasMes._count.id || 0) + (pedidosMes._count.id || 0),
+            },
+        },
+        usuarios: {
+            total: usuariosActivos,
+        },
+        pedidos: {
+            pendientes: pedidosPendientes,
+        },
     };
 };
 
