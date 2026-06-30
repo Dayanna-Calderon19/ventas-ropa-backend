@@ -11,6 +11,7 @@ const formatUsuario = (usuario) => ({
     rol: usuario.rol,
     activo: usuario.activo,
     creadoEn: usuario.creadoEn,
+    telefono: usuario.telefono,
 });
 
 export const registrar = async ({ nombre, correo, contrasena, telefono }) => {
@@ -76,6 +77,17 @@ export const perfil = async (usuarioId) => {
         throw err;
     }
 
+    return formatUsuario(usuario);
+};
+
+export const actualizarPerfil = async (usuarioId, data) => {
+    const usuario = await prisma.usuario.update({
+        where: { id: usuarioId },
+        data: {
+            nombre: data.nombre,
+            telefono: data.telefono,
+        },
+    });
     return formatUsuario(usuario);
 };
 
