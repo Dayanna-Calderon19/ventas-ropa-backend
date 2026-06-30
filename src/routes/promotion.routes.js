@@ -6,7 +6,7 @@ import { validate } from "../middlewares/validate.middleware.js";
 
 const router = Router();
 
-router.get("/", authenticate, authorize("ADMIN"), promotionController.listarPromociones);
+router.get("/", promotionController.listarPromociones);
 router.get("/:id", authenticate, authorize("ADMIN"), promotionController.obtenerPromocion);
 
 router.post(
