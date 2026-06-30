@@ -10,6 +10,15 @@ export const resumenGeneral = async (req, res, next) => {
     }
 };
 
+export const resumenDetallado = async (req, res, next) => {
+    try {
+        const resultado = await reportService.resumenDetallado();
+        return success(res, resultado);
+    } catch (err) {
+        next(err);
+    }
+};
+
 export const ventasPorPeriodo = async (req, res, next) => {
     try {
         const resultado = await reportService.ventasPorPeriodo(req.query);

@@ -69,6 +69,33 @@ export const resumenGeneral = async () => {
     };
 };
 
+export const resumenDetallado = async () => {
+    const [totalProductos, totalVentas, ventas] = await Promise.all([
+        prisma.producto.count({
+            where: { activo: true },
+        }),
+
+        prisma.venta.count(),
+
+        prisma.venta.aggregate({
+            _sum: {
+                total: true,
+            },
+            _avg: {
+                total: true,
+            },
+        }),
+    ]);
+
+    return {
+        totalVentas,
+        ingresosTotales: ventas._sum.total || 0,
+        ticketPromedio: ventas._avg.total || 0,
+        totalProductos,
+    };
+};
+
+
 export const ventasPorPeriodo = async ({
     fechaDesde,
     fechaHasta,

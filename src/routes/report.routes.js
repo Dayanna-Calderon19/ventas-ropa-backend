@@ -10,6 +10,7 @@ const router = Router();
 router.use(authenticate, authorize("ADMIN"));
 
 router.get("/resumen", reportController.resumenGeneral);
+router.get("/resumen-detallado", reportController.resumenDetallado);
 router.get(
     "/ventas",
     validarFiltrosReporte,
