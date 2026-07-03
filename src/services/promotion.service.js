@@ -3,10 +3,11 @@ import { getPaginationParams, buildPaginationMeta } from "../utils/pagination.js
 
 export const listarPromociones = async (query) => {
     const { page, limit, skip } = getPaginationParams(query);
-    const { busqueda, activo } = query;
+    const { busqueda, activo, codigo } = query;
 
     const where = {
         ...(activo !== undefined && { activo: activo === "true" }),
+        ...(codigo && { codigo }),
         ...(busqueda && {
             OR: [
                 { nombre: { contains: busqueda, mode: "insensitive" } },

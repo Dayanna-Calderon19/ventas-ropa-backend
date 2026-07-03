@@ -34,29 +34,29 @@ export const listarProductos = async (query) => {
             ],
         }),
         ...(talla || color || precioMin || precioMax
-            ? {
-                  variantes: {
-                      some: {
-                          ...(activo !== undefined && { activo: activo === "true" }),
-                          ...(talla && {
-                              talla: { equals: talla, mode: "insensitive" },
-                          }),
-                          ...(color && {
-                              color: { contains: color, mode: "insensitive" },
-                          }),
-                          ...((precioMin || precioMax) && {
-                              precio: {
-                                  ...(precioMin && {
-                                      gte: parseFloat(precioMin),
-                                  }),
-                                  ...(precioMax && {
-                                      lte: parseFloat(precioMax),
-                                  }),
-                              },
-                          }),
-                      },
-                  },
-              }
+                ? {
+                    variantes: {
+                        some: {
+                            ...(activo !== undefined && { activo: activo === "true" }),
+                            ...(talla && {
+                                talla: { equals: talla, mode: "insensitive" },
+                            }),
+                            ...(color && {
+                                color: { contains: color, mode: "insensitive" },
+                            }),
+                            ...((precioMin || precioMax) && {
+                                precio: {
+                                    ...(precioMin && {
+                                        gte: parseFloat(precioMin),
+                                    }),
+                                    ...(precioMax && {
+                                        lte: parseFloat(precioMax),
+                                    }),
+                                },
+                            }),
+                        },
+                    },
+                }
             : {}),
     };
 
@@ -101,7 +101,7 @@ export const crearProducto = async (data) => {
         imagenUrl,
         destacado,
         variantes,
-        galeria, // Array de strings (URLs)
+        galeria,
     } = data;
 
     const categoriaExiste = await prisma.categoria.findUnique({
@@ -139,7 +139,6 @@ export const crearProducto = async (data) => {
         }
     }
 
-    // Preparar imágenes
     const imagenes = [];
     if (imagenUrl) {
         imagenes.push({ url: imagenUrl, esPrincipal: true, orden: 0 });
@@ -160,17 +159,17 @@ export const crearProducto = async (data) => {
             destacado: destacado || false,
             categoriaId,
             variantes: variantes?.length
-                ? {
-                      create: variantes.map(
-                          ({ sku, talla, color, precio, stock }) => ({
-                              sku,
-                              talla,
-                              color,
-                              precio: precio || precioBase,
-                              stock: stock || 0,
-                          }),
-                      ),
-                  }
+                    ? {
+                        create: variantes.map(
+                            ({ sku, talla, color, precio, stock }) => ({
+                                sku,
+                                talla,
+                                color,
+                                precio: precio || precioBase,
+                                stock: stock || 0,
+                            }),
+                        ),
+                    }
                 : undefined,
             imagenes: imagenes.length ? { create: imagenes } : undefined,
         },
@@ -214,7 +213,6 @@ export const actualizarProducto = async (id, data) => {
         }
     }
 
-    // Si se envía galería o imagen principal, refrescar imágenes
     if (imagenUrl !== undefined || galeria !== undefined) {
         await prisma.imagenProducto.deleteMany({ where: { productoId: id } });
         
@@ -233,6 +231,32 @@ export const actualizarProducto = async (id, data) => {
         if (nuevasImagenes.length) {
             await prisma.imagenProducto.createMany({
                 data: nuevasImagenes.map(img => ({ ...img, productoId: id }))
+            });
+        }
+    }
+
+    if (data.variantes) {
+        await prisma.varianteProducto.updateMany({
+            where: { productoId: id },
+            data: { activo: false }
+        });
+
+        for (const v of data.variantes) {
+            await prisma.varianteProducto.upsert({
+                where: { sku: v.sku },
+                update: {
+                    talla: v.talla,
+                    color: v.color,
+                    precio: v.precio,
+                    stock: v.stock,
+                    activo: true,
+                    productoId: id
+                },
+                create: {
+                    ...v,
+                    productoId: id,
+                    activo: true
+                }
             });
         }
     }
