@@ -28,6 +28,15 @@ export const perfil = async (req, res, next) => {
     }
 };
 
+export const actualizarPerfil = async (req, res, next) => {
+    try {
+        const resultado = await authService.actualizarPerfil(req.usuario.id, req.body);
+        return success(res, resultado, "Perfil actualizado correctamente");
+    } catch (err) {
+        next(err);
+    }
+};
+
 export const cambiarContrasena = async (req, res, next) => {
     try {
         await authService.cambiarContrasena(req.usuario.id, req.body);

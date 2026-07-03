@@ -6,13 +6,14 @@ import {
     validarRegistro,
     validarLogin,
     validarCambioContrasena,
-} from "../validators/auth.validator.js";
+} from "../validator/auth.validator.js";
 
 const router = Router();
 
 router.post("/registrar", validarRegistro, validate, authController.registrar);
 router.post("/login", validarLogin, validate, authController.login);
 router.get("/perfil", authenticate, authController.perfil);
+router.patch("/mi-perfil", authenticate, authController.actualizarPerfil);
 router.patch(
     "/cambiar-contrasena",
     authenticate,

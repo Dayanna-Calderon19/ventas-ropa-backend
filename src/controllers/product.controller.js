@@ -42,27 +42,52 @@ export const actualizarProducto = async (req, res, next) => {
 
 export const eliminarProducto = async (req, res, next) => {
     try {
-        await productService.eliminarProducto(req.params.id);
-        return success(res, null, "Producto desactivado correctamente");
+        const resultado = await productService.toggleActivoProducto(req.params.id);
+        return success(
+            res,
+            resultado,
+            `Producto ${resultado.activo ? "reactivado" : "desactivado"} correctamente`,
+        );
     } catch (err) {
         next(err);
     }
 };
 
-export const listarCategorias = async (req, res, next) => {
+export const toggleActivoVariante = async (req, res, next) => {
     try {
-        const resultado = await productService.listarCategorias();
-        return success(res, resultado);
+        const resultado = await productService.toggleActivoVariante(req.params.id);
+        return success(
+            res,
+            resultado,
+            `Variante ${resultado.activo ? "reactivada" : "desactivada"} correctamente`,
+        );
     } catch (err) {
         next(err);
     }
 };
 
-export const crearCategoria = async (req, res, next) => {
+export const crearVariante = async (req, res, next) => {
     try {
-        const resultado = await productService.crearCategoria(req.body);
-        return created(res, resultado, "Categoría creada correctamente");
+        const resultado = await productService.crearVariante(
+            req.params.productoId,
+            req.body,
+        );
+        return created(res, resultado, "Variante agregada correctamente");
     } catch (err) {
         next(err);
     }
 };
+
+export const actualizarVariante = async (req, res, next) => {
+    try {
+        const resultado = await productService.actualizarVariante(
+            req.params.id,
+            req.body,
+        );
+        return success(res, resultado, "Variante actualizada correctamente");
+    } catch (err) {
+        next(err);
+    }
+};
+
+

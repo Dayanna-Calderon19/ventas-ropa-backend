@@ -8,12 +8,18 @@ const STOCK_MINIMO = 5;
 
 export const listarVariantes = async (query) => {
     const { page, limit, skip } = getPaginationParams(query);
-    const { productoId, stockBajo } = query;
+    const { productoId, stockBajo, busqueda } = query;
 
     const where = {
         activo: true,
         ...(productoId && { productoId }),
         ...(stockBajo === "true" && { stock: { lte: STOCK_MINIMO } }),
+        ...(busqueda && {
+            OR: [
+                { sku: { contains: busqueda, mode: 'insensitive' } },
+                { producto: { nombre: { contains: busqueda, mode: 'insensitive' } } }
+            ]
+        }),
     };
 
     const [total, variantes] = await Promise.all([

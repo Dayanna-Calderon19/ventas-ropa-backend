@@ -8,7 +8,7 @@ import {
     validarActualizarProducto,
     validarFiltrosProducto,
     validarCrearCategoria,
-} from "../validators/product.validator.js";
+} from "../validator/product.validator.js";
 
 const router = Router();
 
@@ -18,7 +18,6 @@ router.get(
     validate,
     productController.listarProductos,
 );
-router.get("/categorias", productController.listarCategorias);
 router.get("/:id", productController.obtenerProducto);
 
 router.post(
@@ -37,19 +36,35 @@ router.put(
     validate,
     productController.actualizarProducto,
 );
-router.delete(
-    "/:id",
+router.patch(
+    "/:id/toggle-activo",
     authenticate,
     authorize("ADMIN"),
     productController.eliminarProducto,
 );
+
+// Variantes
 router.post(
-    "/categorias",
+    "/:productoId/variantes",
     authenticate,
     authorize("ADMIN"),
-    validarCrearCategoria,
     validate,
-    productController.crearCategoria,
+    productController.crearVariante,
+);
+
+router.put(
+    "/variantes/:id",
+    authenticate,
+    authorize("ADMIN"),
+    validate,
+    productController.actualizarVariante,
+);
+
+router.patch(
+    "/variantes/:id/toggle-activo",
+    authenticate,
+    authorize("ADMIN"),
+    productController.toggleActivoVariante,
 );
 
 export default router;

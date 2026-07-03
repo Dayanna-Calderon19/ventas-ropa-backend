@@ -10,6 +10,15 @@ export const resumenGeneral = async (req, res, next) => {
     }
 };
 
+export const resumenDetallado = async (req, res, next) => {
+    try {
+        const resultado = await reportService.resumenDetallado();
+        return success(res, resultado);
+    } catch (err) {
+        next(err);
+    }
+};
+
 export const ventasPorPeriodo = async (req, res, next) => {
     try {
         const resultado = await reportService.ventasPorPeriodo(req.query);
@@ -30,7 +39,7 @@ export const productosMasVendidos = async (req, res, next) => {
 
 export const ingresosMensuales = async (req, res, next) => {
     try {
-        const resultado = await reportService.ingresosMensuales(req.query.año);
+        const resultado = await reportService.ingresosMensuales(req.query.anio);
         return success(res, resultado);
     } catch (err) {
         next(err);

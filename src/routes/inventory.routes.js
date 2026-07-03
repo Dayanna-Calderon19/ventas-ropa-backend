@@ -8,7 +8,7 @@ import {
     validarCrearVariante,
     validarActualizarVariante,
     validarFiltrosMovimientos,
-} from "../validators/inventory.validator.js";
+} from "../validator/inventory.validator.js";
 
 const router = Router();
 

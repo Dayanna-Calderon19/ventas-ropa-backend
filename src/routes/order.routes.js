@@ -7,7 +7,7 @@ import {
     validarCrearPedido,
     validarActualizarEstado,
     validarFiltrosPedido,
-} from "../validators/order.validator.js";
+} from "../validator/order.validator.js";
 
 const router = Router();
 

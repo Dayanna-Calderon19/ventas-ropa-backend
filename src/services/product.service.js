@@ -6,7 +6,7 @@ import {
 
 const productoInclude = {
     categoria: { select: { id: true, nombre: true, slug: true } },
-    variantes: { where: { activo: true }, orderBy: { talla: "asc" } },
+    variantes: { orderBy: { talla: "asc" } },
     imagenes: { orderBy: { orden: "asc" } },
 };
 
@@ -24,7 +24,7 @@ export const listarProductos = async (query) => {
     } = query;
 
     const where = {
-        activo: activo === "false" ? false : true,
+        ...(activo !== undefined && { activo: activo === "true" }),
         ...(destacado === "true" && { destacado: true }),
         ...(categoriaId && { categoriaId }),
         ...(busqueda && {
@@ -34,29 +34,29 @@ export const listarProductos = async (query) => {
             ],
         }),
         ...(talla || color || precioMin || precioMax
-            ? {
-                  variantes: {
-                      some: {
-                          activo: true,
-                          ...(talla && {
-                              talla: { equals: talla, mode: "insensitive" },
-                          }),
-                          ...(color && {
-                              color: { contains: color, mode: "insensitive" },
-                          }),
-                          ...((precioMin || precioMax) && {
-                              precio: {
-                                  ...(precioMin && {
-                                      gte: parseFloat(precioMin),
-                                  }),
-                                  ...(precioMax && {
-                                      lte: parseFloat(precioMax),
-                                  }),
-                              },
-                          }),
-                      },
-                  },
-              }
+                ? {
+                    variantes: {
+                        some: {
+                            ...(activo !== undefined && { activo: activo === "true" }),
+                            ...(talla && {
+                                talla: { equals: talla, mode: "insensitive" },
+                            }),
+                            ...(color && {
+                                color: { contains: color, mode: "insensitive" },
+                            }),
+                            ...((precioMin || precioMax) && {
+                                precio: {
+                                    ...(precioMin && {
+                                        gte: parseFloat(precioMin),
+                                    }),
+                                    ...(precioMax && {
+                                        lte: parseFloat(precioMax),
+                                    }),
+                                },
+                            }),
+                        },
+                    },
+                }
             : {}),
     };
 
@@ -64,7 +64,10 @@ export const listarProductos = async (query) => {
         prisma.producto.count({ where }),
         prisma.producto.findMany({
             where,
-            include: productoInclude,
+            include: {
+                ...productoInclude,
+                _count: { select: { variantes: true } }
+            },
             skip,
             take: limit,
             orderBy: { creadoEn: "desc" },
@@ -98,6 +101,7 @@ export const crearProducto = async (data) => {
         imagenUrl,
         destacado,
         variantes,
+        galeria,
     } = data;
 
     const categoriaExiste = await prisma.categoria.findUnique({
@@ -111,6 +115,7 @@ export const crearProducto = async (data) => {
 
     const slug = nombre
         .toLowerCase()
+        .trim()
         .replace(/\s+/g, "-")
         .replace(/[^a-z0-9-]/g, "");
     const slugExiste = await prisma.producto.findUnique({ where: { slug } });
@@ -134,7 +139,17 @@ export const crearProducto = async (data) => {
         }
     }
 
-    const producto = await prisma.producto.create({
+    const imagenes = [];
+    if (imagenUrl) {
+        imagenes.push({ url: imagenUrl, esPrincipal: true, orden: 0 });
+    }
+    if (galeria?.length) {
+        galeria.forEach((url, index) => {
+            imagenes.push({ url, esPrincipal: false, orden: index + 1 });
+        });
+    }
+
+    return prisma.producto.create({
         data: {
             nombre,
             slug,
@@ -144,23 +159,22 @@ export const crearProducto = async (data) => {
             destacado: destacado || false,
             categoriaId,
             variantes: variantes?.length
-                ? {
-                      create: variantes.map(
-                          ({ sku, talla, color, precio, stock }) => ({
-                              sku,
-                              talla,
-                              color,
-                              precio,
-                              stock: stock || 0,
-                          }),
-                      ),
-                  }
+                    ? {
+                        create: variantes.map(
+                            ({ sku, talla, color, precio, stock }) => ({
+                                sku,
+                                talla,
+                                color,
+                                precio: precio || precioBase,
+                                stock: stock || 0,
+                            }),
+                        ),
+                    }
                 : undefined,
+            imagenes: imagenes.length ? { create: imagenes } : undefined,
         },
         include: productoInclude,
     });
-
-    return producto;
 };
 
 export const actualizarProducto = async (id, data) => {
@@ -179,12 +193,14 @@ export const actualizarProducto = async (id, data) => {
         imagenUrl,
         destacado,
         activo,
+        galeria,
     } = data;
 
     let slug = producto.slug;
     if (nombre && nombre !== producto.nombre) {
         slug = nombre
             .toLowerCase()
+            .trim()
             .replace(/\s+/g, "-")
             .replace(/[^a-z0-9-]/g, "");
         const slugExiste = await prisma.producto.findFirst({
@@ -194,6 +210,54 @@ export const actualizarProducto = async (id, data) => {
             const err = new Error("Ya existe un producto con ese nombre");
             err.statusCode = 409;
             throw err;
+        }
+    }
+
+    if (imagenUrl !== undefined || galeria !== undefined) {
+        await prisma.imagenProducto.deleteMany({ where: { productoId: id } });
+        
+        const nuevasImagenes = [];
+        const principal = imagenUrl || producto.imagenUrl;
+        if (principal) {
+            nuevasImagenes.push({ url: principal, esPrincipal: true, orden: 0 });
+        }
+        
+        if (galeria?.length) {
+            galeria.forEach((url, index) => {
+                nuevasImagenes.push({ url, esPrincipal: false, orden: index + 1 });
+            });
+        }
+
+        if (nuevasImagenes.length) {
+            await prisma.imagenProducto.createMany({
+                data: nuevasImagenes.map(img => ({ ...img, productoId: id }))
+            });
+        }
+    }
+
+    if (data.variantes) {
+        await prisma.varianteProducto.updateMany({
+            where: { productoId: id },
+            data: { activo: false }
+        });
+
+        for (const v of data.variantes) {
+            await prisma.varianteProducto.upsert({
+                where: { sku: v.sku },
+                update: {
+                    talla: v.talla,
+                    color: v.color,
+                    precio: v.precio,
+                    stock: v.stock,
+                    activo: true,
+                    productoId: id
+                },
+                create: {
+                    ...v,
+                    productoId: id,
+                    activo: true
+                }
+            });
         }
     }
 
@@ -212,7 +276,7 @@ export const actualizarProducto = async (id, data) => {
     });
 };
 
-export const eliminarProducto = async (id) => {
+export const toggleActivoProducto = async (id) => {
     const producto = await prisma.producto.findUnique({ where: { id } });
     if (!producto) {
         const err = new Error("Producto no encontrado");
@@ -220,30 +284,45 @@ export const eliminarProducto = async (id) => {
         throw err;
     }
 
-    await prisma.producto.update({ where: { id }, data: { activo: false } });
-};
-
-export const listarCategorias = async () => {
-    return prisma.categoria.findMany({
-        where: { activo: true },
-        orderBy: { nombre: "asc" },
+    return prisma.producto.update({
+        where: { id },
+        data: { activo: !producto.activo },
     });
 };
 
-export const crearCategoria = async ({ nombre, descripcion, imagenUrl }) => {
-    const slug = nombre
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "");
+export const toggleActivoVariante = async (id) => {
+    const variante = await prisma.varianteProducto.findUnique({ where: { id } });
+    if (!variante) {
+        const err = new Error("Variante no encontrada");
+        err.statusCode = 404;
+        throw err;
+    }
 
-    const existe = await prisma.categoria.findUnique({ where: { slug } });
-    if (existe) {
-        const err = new Error("Ya existe una categoría con ese nombre");
+    return prisma.varianteProducto.update({
+        where: { id },
+        data: { activo: !variante.activo },
+    });
+};
+
+export const crearVariante = async (productoId, data) => {
+    const { sku } = data;
+    const existeSku = await prisma.varianteProducto.findUnique({ where: { sku } });
+    if (existeSku) {
+        const err = new Error("El SKU ya está registrado");
         err.statusCode = 409;
         throw err;
     }
 
-    return prisma.categoria.create({
-        data: { nombre, slug, descripcion, imagenUrl },
+    return prisma.varianteProducto.create({
+        data: { ...data, productoId },
     });
 };
+
+export const actualizarVariante = async (id, data) => {
+    return prisma.varianteProducto.update({
+        where: { id },
+        data,
+    });
+};
+
+

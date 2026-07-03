@@ -3,13 +3,14 @@ import * as reportController from "../controllers/report.controller.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
 import { authorize } from "../middlewares/roles.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
-import { validarFiltrosReporte } from "../validators/report.validator.js";
+import { validarFiltrosReporte } from "../validator/report.validator.js";
 
 const router = Router();
 
 router.use(authenticate, authorize("ADMIN"));
 
 router.get("/resumen", reportController.resumenGeneral);
+router.get("/resumen-detallado", reportController.resumenDetallado);
 router.get(
     "/ventas",
     validarFiltrosReporte,
