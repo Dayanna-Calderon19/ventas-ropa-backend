@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "build": "prisma generate",
+    "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "node src/prisma/seed.js",
@@ -28,12 +29,12 @@
     "express": "^4.19.2",
     "express-validator": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.21.0"
+    "pg": "^8.21.0",
+    "prisma": "7.8.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "nodemon": "^3.1.4",
-    "prisma": "7.8.0",
     "typescript": "^6.0.3"
   }
 }
