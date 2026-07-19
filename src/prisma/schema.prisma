@@ -40,6 +40,12 @@ enum TipoDescuento {
     MONTO_FIJO
 }
 
+enum TipoReclamacion {
+    QUEJA
+    RECLAMO
+    SUGERENCIA
+}
+
 model Usuario {
     id            String   @id @default(uuid())
     nombre        String
@@ -294,4 +300,16 @@ model ItemPromocion {
 
     @@unique([promocionId, productoId])
     @@map("items_promocion")
+}
+
+model Reclamacion {
+    id          String          @id @default(uuid())
+    tipo        TipoReclamacion
+    nombre      String
+    correo      String
+    telefono    String?
+    descripcion String
+    creadoEn    DateTime        @default(now())
+
+    @@map("reclamaciones")
 }

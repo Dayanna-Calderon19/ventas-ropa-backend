@@ -9,6 +9,7 @@ import orderRoutes from "./order.routes.js";
 import clientRoutes from "./client.routes.js";
 import userRoutes from "./user.routes.js";
 import reportRoutes from "./report.routes.js";
+import reclamacionRoutes from "./reclamacion.routes.js";
 
 const router = Router();
 
@@ -31,5 +32,6 @@ router.use("/pedidos", orderRoutes);
 router.use("/usuarios", clientRoutes);
 router.use("/gestion-usuarios", userRoutes);
 router.use("/reportes", reportRoutes);
+router.use("/reclamaciones", reclamacionRoutes);
 
 export default router;
